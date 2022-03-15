@@ -1,12 +1,17 @@
 from __future__ import annotations
+
+import math
+
 import numpy as np
 from numpy.linalg import inv, det, slogdet
+from utils import *
 
 
 class UnivariateGaussian:
     """
     Class for univariate Gaussian Distribution Estimator
     """
+
     def __init__(self, biased_var: bool = False) -> UnivariateGaussian:
         """
         Estimator for univariate Gaussian mean and variance parameters
@@ -51,7 +56,9 @@ class UnivariateGaussian:
         Sets `self.mu_`, `self.var_` attributes according to calculated estimation (where
         estimator is either biased or unbiased). Then sets `self.fitted_` attribute to `True`
         """
-        raise NotImplementedError()
+
+        self.mu_ = X.mean()
+        self.var_ = X.var(ddof=1)
 
         self.fitted_ = True
         return self
@@ -76,7 +83,14 @@ class UnivariateGaussian:
         """
         if not self.fitted_:
             raise ValueError("Estimator must first be fitted before calling `pdf` function")
-        raise NotImplementedError()
+        X.sort()
+        pdfs = np.zeros(len(X))
+
+        for i in range(len(X)):
+            x = X[i]
+            pdfs[i] = math.exp((-(x - self.mu_) ** 2) / 2 * self.var_**2)/math.sqrt(2*math.pi * self.var_**2)
+
+        return pdfs
 
     @staticmethod
     def log_likelihood(mu: float, sigma: float, X: np.ndarray) -> float:
@@ -104,6 +118,7 @@ class MultivariateGaussian:
     """
     Class for multivariate Gaussian Distribution Estimator
     """
+
     def __init__(self):
         """
         Initialize an instance of multivariate Gaussian estimator
@@ -168,7 +183,7 @@ class MultivariateGaussian:
         """
         if not self.fitted_:
             raise ValueError("Estimator must first be fitted before calling `pdf` function")
-        raise NotImplementedError()
+
 
     @staticmethod
     def log_likelihood(mu: np.ndarray, cov: np.ndarray, X: np.ndarray) -> float:
@@ -190,3 +205,28 @@ class MultivariateGaussian:
             log-likelihood calculated over all input data and under given parameters of Gaussian
         """
         raise NotImplementedError()
+
+
+if __name__ == '__main__':
+    my_uni_dis = UnivariateGaussian()
+    sample_size = 10000
+    mu = 10
+    sigma = 1
+    X = np.random.normal(mu, sigma, size=sample_size)
+    my_uni_dis.fit(X)
+    estimated_mean_distance = []
+    for n in range(10, sample_size, 10):
+        estimated_mean_distance.append(abs(np.mean(X[:n]) - mu))
+    go.Figure([go.Scatter(x=list(range(10, sample_size, 10)), y=estimated_mean_distance, mode='markers+lines', name=r'$\widehat\mu$')],
+              layout=go.Layout(title=r"$\text{Estimation of divariation from  Expectation As Function Of Number Of Samples}$",
+                               xaxis_title="$m\\text{ - number of samples}$", yaxis_title="r$\hat\mu - E[X]$", height=300)).show()
+
+    pdfs = my_uni_dis.pdf(X)
+
+    X = X.sort()
+    go.Figure([go.Scatter(x=X, y=pdfs, mode='markers+lines',
+                          name=r'$\widehat\mu$')],
+              layout=go.Layout(
+                  title=r"$\text{pdfs of Samples}$",
+                  xaxis_title="$\\text{samples values}$", yaxis_title="$\\text{pdfs values}$", height=300)).show()
+
