@@ -88,7 +88,8 @@ class UnivariateGaussian:
 
         for i in range(len(X)):
             x = X[i]
-            pdfs[i] = math.exp((-(x - self.mu_) ** 2) / 2 * self.var_**2)/math.sqrt(2*math.pi * self.var_**2)
+            pdfs[i] = math.exp((-pow((x - self.mu_), 2)) / (2 * self.var_)) / math.sqrt(2*math.pi * self.var_)
+
 
         return pdfs
 
@@ -111,7 +112,12 @@ class UnivariateGaussian:
         log_likelihood: float
             log-likelihood calculated
         """
-        raise NotImplementedError()
+        new_x = []
+        for x in X:
+            new_x.append(pow(x-mu, 2))
+
+        sum_of_new_x = sum(new_x)
+        return (len(X)*(np.log(2*np.pi)+np.log(sigma))+sum_of_new_x/(sigma)) * (-0.5)
 
 
 class MultivariateGaussian:
@@ -158,8 +164,8 @@ class MultivariateGaussian:
         Sets `self.mu_`, `self.cov_` attributes according to calculated estimation.
         Then sets `self.fitted_` attribute to `True`
         """
-        raise NotImplementedError()
-
+        self.mu_ = X.mean(axis=0)
+        self.cov_ = np.cov(X.transpose(), ddof=None, bias=False)
         self.fitted_ = True
         return self
 
@@ -184,6 +190,18 @@ class MultivariateGaussian:
         if not self.fitted_:
             raise ValueError("Estimator must first be fitted before calling `pdf` function")
 
+        pdfs = np.zeros(len(X))
+
+        for i in range(len(X)):
+            x = X[i]
+            a = np.matmul(np.transpose(x-self.mu_), np.linalg.inv(self.cov_))
+            a = np.matmul(a, (x-self.mu_))
+            b = math.sqrt(pow(2 * math.pi, len(x)) * np.linalg.det(self.cov_))
+            pdfs[i] = a / b
+
+        return pdfs
+
+
 
     @staticmethod
     def log_likelihood(mu: np.ndarray, cov: np.ndarray, X: np.ndarray) -> float:
@@ -204,29 +222,16 @@ class MultivariateGaussian:
         log_likelihood: float
             log-likelihood calculated over all input data and under given parameters of Gaussian
         """
-        raise NotImplementedError()
+        samples_log_likelihood = []
+        for i in range(len(X)):
+            x = X[i]
+            a = np.matmul(np.transpose(x - mu), np.linalg.inv(cov))
+            a = np.matmul(a, (x - mu))
+
+            samples_log_likelihood.append(a + math.log(np.linalg.det(cov) + 2 * math.pi * len(x)))
+
+        return sum(samples_log_likelihood) * (-0.5)
 
 
-if __name__ == '__main__':
-    my_uni_dis = UnivariateGaussian()
-    sample_size = 10000
-    mu = 10
-    sigma = 1
-    X = np.random.normal(mu, sigma, size=sample_size)
-    my_uni_dis.fit(X)
-    estimated_mean_distance = []
-    for n in range(10, sample_size, 10):
-        estimated_mean_distance.append(abs(np.mean(X[:n]) - mu))
-    go.Figure([go.Scatter(x=list(range(10, sample_size, 10)), y=estimated_mean_distance, mode='markers+lines', name=r'$\widehat\mu$')],
-              layout=go.Layout(title=r"$\text{Estimation of divariation from  Expectation As Function Of Number Of Samples}$",
-                               xaxis_title="$m\\text{ - number of samples}$", yaxis_title="r$\hat\mu - E[X]$", height=300)).show()
 
-    pdfs = my_uni_dis.pdf(X)
-
-    X = X.sort()
-    go.Figure([go.Scatter(x=X, y=pdfs, mode='markers+lines',
-                          name=r'$\widehat\mu$')],
-              layout=go.Layout(
-                  title=r"$\text{pdfs of Samples}$",
-                  xaxis_title="$\\text{samples values}$", yaxis_title="$\\text{pdfs values}$", height=300)).show()
 
